@@ -1,0 +1,14 @@
+{
+  "id": "charth",
+  "title": "CHarth",
+  "author": "Jadflat",
+  "genre": "Puzzle",
+  "description": "A block-shooting puzzle game: fire blocks to complete each descending shape before it reaches you. Pause menu and a saved game.",
+  "license": "MIT",
+  "buttons": [
+    { "control": "D-PAD", "action": "Move the ship (DOWN hurries the shapes)" },
+    { "control": "A or B", "action": "Fire a block" },
+    { "control": "START", "action": "Pause menu" },
+    { "control": "START (hold 3 s)", "action": "Back to the CHGame menu" }
+  ]
+}

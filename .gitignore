@@ -1,0 +1,5 @@
+out/
+build/
+dist/*.chgame
+__pycache__/
+*.pyc
