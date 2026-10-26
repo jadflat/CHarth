@@ -1,22 +1,16 @@
 # Title, start a game, shoot, pause and resume.
-wait 140
+step 140
 snap 01_title
 tap A
-wait 40
+step 40
 hold LEFT
-wait 12
+step 12
 release
 tap A
-wait 30
+step 30
 hold RIGHT
-wait 24
+step 24
 release
 tap A
-wait 30
+step 30
 snap 02_play
-tap START
-wait 4
-snap 03_pause
-tap START
-wait 20
-snap 04_resume

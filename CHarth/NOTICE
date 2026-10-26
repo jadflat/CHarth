@@ -1,9 +1,8 @@
 CHarth
-Copyright (c) 2026 Jadflat, MIT (see ../LICENSE).
+Copyright (c) 2026 The CHarth authors, MIT (see ../LICENSE).
 
 An original block-shooting puzzle game for CHGame. All code, art and music are original.
 
-The sprites and the logo were rendered to PNG with the author's own CHGame-tuned "pixel-art-gen" Claude skill from grids drawn for
-this game; the art itself is original and covered by the MIT licence above.
-
 Built on CHGame, Copyright 2026 Kevin Bates (bateske), Apache-2.0: the framework is vendored in chgame/ (see chgame/NOTICE and chgame/LICENSE).
+
+The sprites and the title logo were rendered to PNG with a pixel-art generator from grids drawn for this game; the art itself is original and covered by the MIT licence above.

@@ -1,6 +1,6 @@
 This repository has two parts, each under its own licence:
 
-1. The game's own code, art and music (below): MIT, by Jadflat.
+1. The game's own code, art and music (below): MIT, by the CHarth authors.
 2. chgame/: the CHGame framework and tools by Kevin Bates (bateske),
    Apache-2.0. It is Kevin's work, vendored unchanged: see chgame/LICENSE and
    chgame/NOTICE. The game is built on his CHGame board package and tools.
@@ -12,7 +12,7 @@ Part 1: the game's own code
 
 MIT License
 
-Copyright (c) 2026 Jadflat
+Copyright (c) 2026 The CHarth authors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -29,8 +29,8 @@ static const audio::Effect SOUNDS[] = {
     AUDIO_EFFECT(ST_FIRE, 2), AUDIO_EFFECT(ST_LAND, 3), AUDIO_EFFECT(ST_CLEAR, 5), AUDIO_EFFECT(ST_BIG, 6),
     AUDIO_EFFECT(ST_OVER, 8), AUDIO_EFFECT(ST_LEVEL, 7) };
 
-// The alien head logo, drawn with the pixel-art tool (art/alien.txt): the left half, mirrored.
-static const char *const ALIEN[24] = {
+// The title's head logo, drawn with the pixel-art tool (art/head.txt): the left half, mirrored.
+static const char *const HEAD[24] = {
     ".........###",
     ".......#####",
     "......######",
@@ -95,22 +95,37 @@ static void saveProgress(bool inGame) {
     saveDue = true;                                          // written after gfx_wait() in loop()
 }
 
-// ---- formations: a flat top, every column a run from the top down to its own length. A shot sticks
-// under the lowest block of its column, so any gap is fillable from below and every shape can be completed.
-// They grow with the level: about 9 shots to complete one at level 1, 14 at level 4, 19 at level 6.
+// ---- formations: a set of shapes, each a row of column heights (a digit per column, hanging from the top).
+// A shot sticks under the lowest block of its column, so every gap is open from below and every shape can be
+// completed. Shapes are mirrored at random and grow with the level (taller, and a thicker top bar).
+static const char *const SHAPES[] = {
+    "4114", "5115", "3131313", "5151515", "123456", "123432", "1234321", "5432345", "2531352", "13513",
+    "62426", "26462", "611116", "622226", "123321", "7171717", "5252525", "44144", "3 4 2 4 3", "2 3 1 3 2",
+    "6 1 4 1 6", "1 5 5 1", "35 3 53", "2 2 6 2 2", "4 2 2 4", "1 6 3 3 6 1", "5 3 1 3 5", "2 4 6 4 2 4", "8 1 1 1 8", "3 6 3 6 3" };
+// The first levels use only wide, flat shapes with a few small gaps (2-5 shots to complete one).
+static const char *const EASY[] = { "22322", "223322", "2233322", "32223", "322223", "3223", "232323", "2223222", "223 3 22", "3232" };
 static int fLen[COLS], formW, formX, formRow, gapLeft;
 static bool formOn;
 
 static void newFormation() {
-    formW = constrain(4 + rnd(3) + level / 3, 4, 8);
-    int formH = constrain(4 + rnd(4) + level / 3, 4, 10);
-    int l = 1 + rnd(formH);
-    for (int x = 0; x < formW; x++) {                     // column lengths wander by up to two blocks
-        l = constrain(l + rnd(5) - 2, 1, formH);
-        fLen[x] = l;
+    const int nEasy = sizeof EASY / sizeof EASY[0], nAll = sizeof SHAPES / sizeof SHAPES[0];
+    const char *t;
+    if (level <= 2) t = EASY[rnd(nEasy)];                                     // levels 1-2: easy only
+    else if (level <= 4) { int k = rnd(nEasy + 14); t = k < nEasy ? EASY[k] : SHAPES[k - nEasy]; }   // then the simpler shapes
+    else t = SHAPES[rnd(nAll)];                                               // from level 5 all of them
+    int n = 0, bonus = level >= 4 ? (level - 2) / 3 : 0, thick = level >= 5 ? rnd(2) : 0;
+    bool flip = rnd(2);
+    for (const char *c = t; *c && n < COLS; c++)
+        if (*c >= '1' && *c <= '9') fLen[n++] = *c - '0';
+    formW = n;
+    int formH = 1;
+    for (int x = 0; x < formW; x++) {
+        int l = fLen[x] + thick + (fLen[x] > 2 ? bonus : 0);
+        fLen[x] = constrain(l, 1, 11);
+        formH = max(formH, fLen[x]);
     }
-    fLen[rnd(formW)] = formH;                             // the tallest column sets the shape's height
-    formX = (COLS - formW) / 2 + rnd(3) - 1;
+    if (flip) for (int x = 0; x < formW / 2; x++) { int tmp = fLen[x]; fLen[x] = fLen[formW - 1 - x]; fLen[formW - 1 - x] = tmp; }
+    formX = constrain((COLS - formW) / 2 + rnd(3) - 1, 0, COLS - formW);
     formRow = formH - 1; formOn = true;                   // bottom row first
 }
 
@@ -156,7 +171,7 @@ static void startField() {                      // a fresh field at the current 
 }
 
 static void newGame() {
-    level = 1; score = 0; cleared = 0; dropEvery = 10;
+    level = 1; score = 0; cleared = 0; dropEvery = 12;
     startField();
     audio::sfx(S_LEVEL);
 }
@@ -215,6 +230,36 @@ static void land() {
         if (g[ROWS - 1][x]) { gameOver(); return; }
 }
 
+#ifdef CHARTH_DEMO
+// An autoplayer for recording the README's GIF: take the lowest shape, find its shortest columns and
+// fill them down to its tallest, one shot at a time.
+static void demoPlay(int &dx, bool &fire) {
+    int ly = -1, lx = 0;
+    for (int y = ROWS - 1; y >= 0 && ly < 0; y--) for (int x = 0; x < COLS; x++) if (g[y][x] == 1) { ly = y; lx = x; break; }
+    if (ly < 0) return;
+    static uint8_t seen[ROWS][COLS], q[COLS * ROWS];
+    memset(seen, 0, sizeof seen);
+    int h = 0, t = 0, x0 = lx, x1 = lx, y1 = ly;
+    int bot[COLS]; for (int x = 0; x < COLS; x++) bot[x] = -1;
+    q[t++] = ly * COLS + lx; seen[ly][lx] = 1;
+    while (h < t) {
+        int c = q[h++], x = c % COLS, y = c / COLS;
+        x0 = min(x0, x); x1 = max(x1, x); y1 = max(y1, y); bot[x] = max(bot[x], y);
+        static const int8_t D[4][2] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1} };
+        for (int k = 0; k < 4; k++) {
+            int nx = x + D[k][0], ny = y + D[k][1];
+            if (nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && g[ny][nx] == 1 && !seen[ny][nx]) { seen[ny][nx] = 1; q[t++] = ny * COLS + nx; }
+        }
+    }
+    int best = -1;
+    for (int x = x0; x <= x1; x++)
+        if (bot[x] >= 0 && bot[x] < y1 && (best < 0 || abs(x - sc) < abs(best - sc))) best = x;
+    if (best < 0) return;
+    dx = best > sc ? 1 : best < sc ? -1 : 0;
+    fire = (best == sc);
+}
+#endif
+
 static void update() {
     frameNo++;
     if (muzzT) muzzT--;
@@ -256,10 +301,14 @@ static void update() {
             for (int x = 0; x < COLS; x++)
                 if (g[y][x] > 1 && --g[y][x] < 2) {
                     g[y][x] = 0;
-                    burst(OX + x * CELL + 3, OY + y * CELL + 3 + yoff, C_L1);
+                    burst(OX + x * CELL + 3, OY + y * CELL + 3 + yoff, (x + y) & 1 ? C_L2 : C_C2);   // green slime
                 }
     static int rep;
     int dx = (int)chgame.pressed(RIGHT_BUTTON) - (int)chgame.pressed(LEFT_BUTTON);
+    bool fireNow = edge & 12;
+#ifdef CHARTH_DEMO
+    demoPlay(dx, fireNow);
+#endif
     if (!dx) rep = 0;
     else if (rep++ % 3 == 0) sc = constrain(sc + dx, 0, COLS - 1);
     if (shotOn) {
@@ -272,7 +321,7 @@ static void update() {
             if (shotRow >= ROWS) gameOver();
             else land();
         }
-    } else if (edge & 12) { shotX = sc; shotY = SHIPY; shotOn = true; muzzT = 3; audio::sfx(S_FIRE); }
+    } else if (fireNow) { shotX = sc; shotY = SHIPY; shotOn = true; muzzT = 3; audio::sfx(S_FIRE); }
     if (!(frameNo & 1)) thrust();
     if (!(frameNo & 3))
         for (int i = 0; i < 14; i++) if (++stars[i][1] >= ROWS * CELL) { stars[i][1] = 0; stars[i][0] = rnd(COLS * CELL); }
@@ -296,15 +345,34 @@ static void spr(int px, int py, const uint8_t *d) {
     }
 }
 
-static void block(int px, int py) { spr(px, py, TILE); }
+// A stroke block: the bevel runs only along the outside of a shape, so touching blocks join into one stroke.
+static bool occ(int x, int y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS && g[y][x] == 1; }
+static void bevel(int px, int py, uint8_t base, uint8_t lt, uint8_t dk, bool up, bool dn, bool lf, bool rt) {
+    gfx_fillRect(px, py, CELL, CELL, base);
+    if (!up) gfx_fillRect(px, py, CELL, 1, lt);
+    if (!lf) gfx_fillRect(px, py, 1, CELL, lt);
+    gfx_fillRect(px, py + CELL - 1, CELL, 1, dk);                // the bottom and right edges stay dark, so a joined
+    gfx_fillRect(px + CELL - 1, py, 1, CELL, dk);                // stroke still shows its blocks
+    (void)dn; (void)rt;
+}
+static void block(int px, int py) { bevel(px, py, C_C4, C_L4, C_D4, false, false, false, false); }   // the red shot block
 
-static void alien(int x0, int y0, uint8_t c, uint8_t hi) {
+static void head(int x0, int y0, uint8_t c, uint8_t hi) {
     for (int y = 0; y < 24; y++)
         for (int x = 0; x < 12; x++) {
-            char ch = ALIEN[y][x];
+            char ch = HEAD[y][x];
             if (ch == '.') continue;
             uint8_t col = ch == '+' ? hi : (y & 1 ? C_D2 : c);
             gfx_pixel(x0 + x, y0 + y, col); gfx_pixel(x0 + 23 - x, y0 + y, col);
+        }
+}
+
+static void headMini(int x0, int y0, uint8_t c, uint8_t hi) {         // the head at half size, for the panel
+    for (int y = 0; y < 12; y++)
+        for (int x = 0; x < 12; x++) {
+            int hx = 2 * (x < 6 ? x : 11 - x) + 1;                    // mirrored, so the icon is symmetric
+            char ch = HEAD[2 * y][hx];
+            if (ch != '.') gfx_pixel(x0 + x, y0 + y, ch == '+' ? hi : c);
         }
 }
 
@@ -349,7 +417,7 @@ static void draw() {
         gfx_text(4, 3, "CARGO BAY TERMINAL", C_C2);
         gfx_text(4, 11, "UNIT 7  //  BAY 4", C_D2);
         int sweep = (frameNo * 2) % 160 - 20;                                     // a bright band sweeps down
-        alien(52, 20, C_C2, C_L2);
+        head(52, 20, C_C2, C_L2);
         gfx_fillRect(0, sweep, 128, 2, C_D2);
         gfx_textScaled(16, 48, "CHARTH", C_D1, 3);
         gfx_textScaled(15, 47, "CHARTH", C_C1, 3);
@@ -396,7 +464,8 @@ static void draw() {
                 static const uint8_t *const EX[3] = { EXP0, EXP1, EXP2 };
                 spr(OX + x * CELL, OY + y * CELL + yoff, EX[constrain((8 - g[y][x]) / 2, 0, 2)]);
             }
-            else if (g[y][x]) block(OX + x * CELL, OY + y * CELL + yoff);
+            else if (g[y][x]) bevel(OX + x * CELL, OY + y * CELL + yoff, C_C2, ((frameNo >> 3) + x + y) % 7 == 0 ? C_L3 : C_L2,   // a slow shimmer: the shapes look alive
+                                    C_D2, occ(x, y - 1), occ(x, y + 1), occ(x - 1, y), occ(x + 1, y));
     if (shotOn) {
         for (int y = shotY + CELL; y < SHIPY; y += 2) gfx_pixel(OX + shotX * CELL + 2 + ((y >> 1) & 1) * 2, y, (y & 4) ? C_L1 : C_D1);   // trail
         block(OX + shotX * CELL, shotY);
@@ -421,9 +490,10 @@ static void draw() {
     gfx_text(PX + 3, 11, s, C_C1);
     gfx_fillRect(PX + 3, 20, 44, 1, C_SCAN);
     gfx_text(PX + 3, 24, "SECT", C_D1);
+    headMini(PX + 32, 25, blink ? C_C4 : ((frameNo >> 4) & 1 ? C_C2 : C_D2), blink ? C_L4 : C_L2);   // the watcher: red when they close in
     snprintf(s, sizeof s, "%02d", level);
     gfx_text(PX + 3, 32, s, C_C2);
-    gfx_text(PX + 3, 44, "PROX", C_D1);                                          // how close the formation is
+    gfx_text(PX + 3, 44, "THREAT", C_D1);                                          // how close the formation is
     int low = 0;
     for (int y = 0; y < ROWS; y++) for (int x = 0; x < COLS; x++) if (g[y][x]) low = y + 1;
     int fill = 44 * low / ROWS;
@@ -447,24 +517,25 @@ static void draw() {
         box(w, 38, COLS * CELL - 4, 22, C_C2);
         snprintf(s, sizeof s, "SECTOR %02d", level);
         gfx_text(w + 8, 43, s, C_C2);
-        gfx_text(w + 8, 51, level == 1 ? "GOOD LUCK" : "SPEED UP", C_D2);
+        gfx_text(w + 8, 51, level == 1 ? "HIVE AHEAD" : "FASTER", C_D2);
     }
     if (state == PAUSED) {
         static const char *const ITEMS[3] = { "RESUME", "SAVE GAME", "RETURN TO TITLE" };
-        box(8, 36, 62, 56, C_C1);
-        gfx_text(14, 41, "PAUSED", C_C1);
-        for (int i = 0; i < 3; i++) gfx_text(14, 53 + i * 9, ITEMS[i], i == pauseSel ? C_C1 : C_D1);
+        box(6, 36, 108, 56, C_C1);
+        gfx_text(18, 41, "PAUSED", C_C1);
+        for (int i = 0; i < 3; i++) gfx_text(18, 53 + i * 9, ITEMS[i], i == pauseSel ? C_C1 : C_D1);
         gfx_text(10, 53 + pauseSel * 9, ">", C_C1);
-        if (pauseNote) gfx_text(14, 82, pauseNote, C_C2);
+        if (pauseNote) gfx_text(18, 82, pauseNote, C_C2);
     }
     if (state == OVER) {
+        head(OX + 12 * CELL / 2 - 12, 12, C_C4, C_L4);                          // it got through
         box(4, 40, 70, 44, C_C4);
-        gfx_text(6, 46, "SYSTEM LOST", (frameNo & 8) ? C_C4 : C_L4);
+        gfx_text(6, 44, "SYSTEM LOST", (frameNo & 8) ? C_C4 : C_L4);
         snprintf(s, sizeof s, "FINAL %d", score);
-        gfx_text(6, 58, s, C_C1);
+        gfx_text(6, 54, s, C_C1);
         snprintf(s, sizeof s, "BEST  %d", hiScore);
-        gfx_text(6, 68, s, C_C2);
-        if (overT == 0 && (frameNo & 16)) gfx_text(6, 76, "PRESS A", C_TEXT);
+        gfx_text(6, 63, s, C_C2);
+        if (overT == 0 && (frameNo & 16)) gfx_text(6, 73, "PRESS A", C_TEXT);
     }
     if (shakeT) {                                                               // a big clear shakes the screen
         int d = (shakeT & 1) ? 2 : -2;
