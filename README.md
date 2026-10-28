@@ -6,8 +6,8 @@
 
 An original block-shooting puzzle game for [CHGame](https://github.com/bateske/CHGame). Shapes made of green blocks creep
 down the screen towards your ship. Fire blocks up the columns to fill in the gaps, complete a whole shape and it
-explodes. Thirty hand-drawn shapes, a terminal-style look and a psytrance loop on the piezo. Every line of code, picture,
-sprite and tune in this repository is original.
+explodes. Thirty hand-drawn shapes, a terminal-style look and a psytrance loop on the piezo. Every line of game code, picture,
+sprite and tune is original; the CHGame library in `chgame/` is by Kevin Bates.
 
 ## Controls
 
@@ -62,7 +62,7 @@ Needs the CHGame board package and the tools in `chgame/` (vendored here). From 
 ```
 
 `./cl build -D=-DCHARTH_DEMO=1` is not for play: it adds the autoplayer that records `docs/gameplay.gif`.
-The sprites come from `tools/sprites.py` (previews in `art/`) and the music from `tools/music.py`.
+The sprites come from `tools/sprites.py` (needs Python 3 with Pillow) (previews in `art/`) and the music from `tools/music.py`.
 
 ## Credits and licence
 
